@@ -119,7 +119,11 @@ public class SecurityEvaluator {
     }
 
     private Mono<Boolean> hasRole(Role role, String userId, JoinPoint joinPoint) {
-        String tenantId = spelEvaluator.evaluateCondition(role.tenantId(), joinPoint);
+        if (!spelEvaluator.evaluateBoolean(role.condition(), joinPoint)) {
+            return Mono.just(false);
+        }
+
+        String tenantId = spelEvaluator.evaluateString(role.tenantId(), joinPoint);
 
         String sql = """
                 SELECT COUNT(*) AS total
@@ -146,7 +150,11 @@ public class SecurityEvaluator {
     }
 
     private Mono<Boolean> hasPermission(Permission permission, String userId, JoinPoint joinPoint) {
-        String tenantId = spelEvaluator.evaluateCondition(permission.condition(), joinPoint);
+        if (!spelEvaluator.evaluateBoolean(permission.condition(), joinPoint)) {
+            return Mono.just(false);
+        }
+
+        String tenantId = spelEvaluator.evaluateString(permission.tenantId(), joinPoint);
 
         String sql = """
                 SELECT COUNT(*) AS total

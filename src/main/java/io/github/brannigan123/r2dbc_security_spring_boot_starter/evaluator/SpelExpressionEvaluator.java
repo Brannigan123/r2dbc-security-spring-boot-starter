@@ -18,24 +18,36 @@ public class SpelExpressionEvaluator {
     private final ExpressionParser parser = new SpelExpressionParser();
     private final ParameterNameDiscoverer nameDiscoverer = new DefaultParameterNameDiscoverer();
 
-    public String evaluateCondition(String expression, JoinPoint joinPoint) {
+    public String evaluateString(String expression, JoinPoint joinPoint) {
         if (expression == null || expression.isBlank()) {
             return null;
         }
+        EvaluationContext context = createEvaluationContext(joinPoint);
+        Object value = parser.parseExpression(expression).getValue(context);
+        return value != null ? value.toString() : null;
+    }
 
+    public boolean evaluateBoolean(String expression, JoinPoint joinPoint) {
+        if (expression == null || expression.isBlank()) {
+            return true;
+        }
+        EvaluationContext context = createEvaluationContext(joinPoint);
+        Boolean value = parser.parseExpression(expression).getValue(context, Boolean.class);
+        return Boolean.TRUE.equals(value);
+    }
+
+    private EvaluationContext createEvaluationContext(JoinPoint joinPoint) {
         MethodSignature signature = (MethodSignature) joinPoint.getSignature();
         Method method = signature.getMethod();
         Object[] args = joinPoint.getArgs();
         String[] paramNames = nameDiscoverer.getParameterNames(method);
 
-        EvaluationContext context = new StandardEvaluationContext();
+        StandardEvaluationContext context = new StandardEvaluationContext();
         if (paramNames != null) {
             for (int i = 0; i < paramNames.length; i++) {
                 context.setVariable(paramNames[i], args[i]);
             }
         }
-
-        Object value = parser.parseExpression(expression).getValue(context);
-        return value != null ? value.toString() : null;
+        return context;
     }
 }
