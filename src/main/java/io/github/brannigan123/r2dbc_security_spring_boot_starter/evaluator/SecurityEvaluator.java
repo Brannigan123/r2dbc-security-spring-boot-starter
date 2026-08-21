@@ -1,5 +1,9 @@
 package io.github.brannigan123.r2dbc_security_spring_boot_starter.evaluator;
 
+import org.aspectj.lang.JoinPoint;
+import org.springframework.r2dbc.core.DatabaseClient;
+import org.springframework.r2dbc.core.DatabaseClient.GenericExecuteSpec;
+
 import io.github.brannigan123.r2dbc_security_spring_boot_starter.annotation.And;
 import io.github.brannigan123.r2dbc_security_spring_boot_starter.annotation.Or;
 import io.github.brannigan123.r2dbc_security_spring_boot_starter.annotation.Permission;
@@ -7,9 +11,6 @@ import io.github.brannigan123.r2dbc_security_spring_boot_starter.annotation.Role
 import io.github.brannigan123.r2dbc_security_spring_boot_starter.annotation.Secured;
 import io.github.brannigan123.r2dbc_security_spring_boot_starter.exception.AccessDeniedException;
 import io.github.brannigan123.r2dbc_security_spring_boot_starter.service.SecurityContextUserResolver;
-import org.aspectj.lang.JoinPoint;
-import org.springframework.r2dbc.core.DatabaseClient;
-import org.springframework.r2dbc.core.DatabaseClient.GenericExecuteSpec;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -20,8 +21,8 @@ public class SecurityEvaluator {
     private final SpelExpressionEvaluator spelEvaluator;
 
     public SecurityEvaluator(DatabaseClient databaseClient,
-                             SecurityContextUserResolver userResolver,
-                             SpelExpressionEvaluator spelEvaluator) {
+            SecurityContextUserResolver userResolver,
+            SpelExpressionEvaluator spelEvaluator) {
         this.databaseClient = databaseClient;
         this.userResolver = userResolver;
         this.spelEvaluator = spelEvaluator;
@@ -29,11 +30,13 @@ public class SecurityEvaluator {
 
     public Mono<Void> evaluate(Secured secured, JoinPoint joinPoint) {
         return userResolver.getCurrentUserId()
-                .switchIfEmpty(Mono.error(new AccessDeniedException("User is unauthenticated")))
+                .switchIfEmpty(
+                        Mono.error(new AccessDeniedException("You need to be logged in to access this resource")))
                 .flatMap(userId -> evaluateSecured(secured, userId, joinPoint))
                 .flatMap(allowed -> allowed
                         ? Mono.empty()
-                        : Mono.error(new AccessDeniedException("Access denied for requested resource")));
+                        : Mono.error(new AccessDeniedException(
+                                "Access denied: You do not have the required roles or permissions to access this resource")));
     }
 
     private Mono<Boolean> evaluateSecured(Secured secured, String userId, JoinPoint joinPoint) {
