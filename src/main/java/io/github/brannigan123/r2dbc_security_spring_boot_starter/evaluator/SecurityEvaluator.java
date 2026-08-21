@@ -124,7 +124,7 @@ public class SecurityEvaluator {
         String sql = """
                 SELECT COUNT(*) AS total
                 FROM assigned_roles
-                WHERE staff_logto_id = :userId
+                WHERE user_id = :userId
                   AND role_name = :roleName
                   AND (:tenantId IS NULL OR tenant_id = :tenantId)
                 """;
@@ -152,7 +152,7 @@ public class SecurityEvaluator {
                 SELECT COUNT(*) AS total
                 FROM assigned_roles ar
                 JOIN role_permissions rp ON ar.tenant_id = rp.tenant_id AND ar.role_name = rp.role_name
-                WHERE ar.staff_logto_id = :userId
+                WHERE ar.user_id = :userId
                   AND rp.permission_name = :permissionName
                   AND (:tenantId IS NULL OR ar.tenant_id = :tenantId)
                 """;
