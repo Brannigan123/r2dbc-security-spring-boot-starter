@@ -1,6 +1,7 @@
 package io.github.brannigan123.r2dbc_security_spring_boot_starter.evaluator;
 
 import java.lang.reflect.Method;
+
 import org.aspectj.lang.JoinPoint;
 import org.aspectj.lang.reflect.MethodSignature;
 import org.springframework.core.DefaultParameterNameDiscoverer;
@@ -31,7 +32,6 @@ public class SpelExpressionEvaluator {
         if (paramNames != null) {
             for (int i = 0; i < paramNames.length; i++) {
                 context.setVariable(paramNames[i], args[i]);
-                context.setVariable("arg" + i, args[i]);
             }
         }
 
