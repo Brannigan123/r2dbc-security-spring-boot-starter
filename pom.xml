@@ -6,7 +6,7 @@
 
     <groupId>io.github.brannigan123</groupId>
     <artifactId>r2dbc-security-spring-boot-starter</artifactId>
-    <version>1.0.0</version>
+    <version>0.0.1-SNAPSHOT</version>
     <name>r2dbc-security-spring-boot-starter</name>
     <description>Reactive security annotation starter using Spring Data R2DBC for endpoint access control</description>
 

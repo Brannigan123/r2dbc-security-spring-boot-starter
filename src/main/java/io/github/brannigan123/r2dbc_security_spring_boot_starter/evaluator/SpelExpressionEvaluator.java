@@ -18,25 +18,25 @@ public class SpelExpressionEvaluator {
     private final ExpressionParser parser = new SpelExpressionParser();
     private final ParameterNameDiscoverer nameDiscoverer = new DefaultParameterNameDiscoverer();
 
-    public String evaluateString(String expression, JoinPoint joinPoint) {
+    public String evaluateString(String expression, JoinPoint joinPoint, Object principal) {
         if (expression == null || expression.isBlank()) {
             return null;
         }
-        EvaluationContext context = createEvaluationContext(joinPoint);
+        EvaluationContext context = createEvaluationContext(joinPoint, principal);
         Object value = parser.parseExpression(expression).getValue(context);
         return value != null ? value.toString() : null;
     }
 
-    public boolean evaluateBoolean(String expression, JoinPoint joinPoint) {
+    public boolean evaluateBoolean(String expression, JoinPoint joinPoint, Object principal) {
         if (expression == null || expression.isBlank()) {
             return true;
         }
-        EvaluationContext context = createEvaluationContext(joinPoint);
+        EvaluationContext context = createEvaluationContext(joinPoint, principal);
         Boolean value = parser.parseExpression(expression).getValue(context, Boolean.class);
         return Boolean.TRUE.equals(value);
     }
 
-    private EvaluationContext createEvaluationContext(JoinPoint joinPoint) {
+    private EvaluationContext createEvaluationContext(JoinPoint joinPoint, Object principal) {
         MethodSignature signature = (MethodSignature) joinPoint.getSignature();
         Method method = signature.getMethod();
         Object[] args = joinPoint.getArgs();
@@ -48,6 +48,13 @@ public class SpelExpressionEvaluator {
                 context.setVariable(paramNames[i], args[i]);
             }
         }
+
+        if (principal != null) {
+            context.setVariable("principal", principal);
+            context.setVariable("user", principal);
+            context.setVariable("userId", principal);
+        }
+
         return context;
     }
 }
