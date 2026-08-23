@@ -1,6 +1,8 @@
 package io.github.brannigan123.r2dbc_security_spring_boot_starter.evaluator;
 
 import java.security.Principal;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.aspectj.lang.JoinPoint;
 import org.springframework.r2dbc.core.DatabaseClient;
@@ -47,10 +49,12 @@ public class SecurityEvaluator {
     private Mono<Boolean> evaluateSecured(Secured secured, String userId, Object principal, JoinPoint joinPoint) {
         Mono<Boolean> directRoles = evaluateRoles(secured.roles(), userId, principal, joinPoint);
         Mono<Boolean> directPermissions = evaluatePermissions(secured.permissions(), userId, principal, joinPoint);
+        Mono<Boolean> directConditions = evaluateConditions(secured.condition(), secured.conditions(), principal,
+                joinPoint);
         Mono<Boolean> andBlocks = evaluateAndBlocks(secured.and(), userId, principal, joinPoint);
         Mono<Boolean> orBlocks = evaluateOrBlocks(secured.or(), userId, principal, joinPoint);
 
-        return Flux.just(directRoles, directPermissions, andBlocks, orBlocks)
+        return Flux.just(directRoles, directPermissions, directConditions, andBlocks, orBlocks)
                 .flatMap(mono -> mono)
                 .any(Boolean::booleanValue);
     }
@@ -64,9 +68,10 @@ public class SecurityEvaluator {
                 .flatMap(or -> {
                     Mono<Boolean> roles = evaluateRoles(or.roles(), userId, principal, joinPoint);
                     Mono<Boolean> perms = evaluatePermissions(or.permissions(), userId, principal, joinPoint);
+                    Mono<Boolean> conds = evaluateConditions(or.condition(), or.conditions(), principal, joinPoint);
                     Mono<Boolean> ands = evaluateAndBlocks(or.and(), userId, principal, joinPoint);
 
-                    return Flux.just(roles, perms, ands)
+                    return Flux.just(roles, perms, conds, ands)
                             .flatMap(mono -> mono)
                             .any(Boolean::booleanValue);
                 })
@@ -82,7 +87,10 @@ public class SecurityEvaluator {
                 .flatMap(and -> {
                     Mono<Boolean> rolesMatch = evaluateRolesAll(and.roles(), userId, principal, joinPoint);
                     Mono<Boolean> permsMatch = evaluatePermissionsAll(and.permissions(), userId, principal, joinPoint);
-                    return Mono.zip(rolesMatch, permsMatch, (r, p) -> r && p);
+                    Mono<Boolean> condsMatch = evaluateConditionsAll(and.condition(), and.conditions(), principal,
+                            joinPoint);
+                    return Mono.zip(rolesMatch, permsMatch, condsMatch)
+                            .map(tuple -> tuple.getT1() && tuple.getT2() && tuple.getT3());
                 })
                 .any(Boolean::booleanValue);
     }
@@ -125,8 +133,55 @@ public class SecurityEvaluator {
                 .all(Boolean::booleanValue);
     }
 
+    private Mono<Boolean> evaluateConditions(String condition, String[] conditions, Object principal,
+            JoinPoint joinPoint) {
+        List<String> validConditions = getValidConditions(condition, conditions);
+        if (validConditions.isEmpty()) {
+            return Mono.just(false);
+        }
+        boolean anyMatch = validConditions.stream()
+                .anyMatch(cond -> spelEvaluator.evaluateBoolean(cond, joinPoint, principal));
+        return Mono.just(anyMatch);
+    }
+
+    private Mono<Boolean> evaluateConditionsAll(String condition, String[] conditions, Object principal,
+            JoinPoint joinPoint) {
+        List<String> validConditions = getValidConditions(condition, conditions);
+        if (validConditions.isEmpty()) {
+            return Mono.just(true);
+        }
+        boolean allMatch = validConditions.stream()
+                .allMatch(cond -> spelEvaluator.evaluateBoolean(cond, joinPoint, principal));
+        return Mono.just(allMatch);
+    }
+
+    private boolean checkConditionsPass(String condition, String[] conditions, JoinPoint joinPoint, Object principal) {
+        List<String> validConditions = getValidConditions(condition, conditions);
+        for (String cond : validConditions) {
+            if (!spelEvaluator.evaluateBoolean(cond, joinPoint, principal)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private List<String> getValidConditions(String condition, String[] conditions) {
+        List<String> list = new ArrayList<>();
+        if (condition != null && !condition.isBlank()) {
+            list.add(condition);
+        }
+        if (conditions != null) {
+            for (String c : conditions) {
+                if (c != null && !c.isBlank()) {
+                    list.add(c);
+                }
+            }
+        }
+        return list;
+    }
+
     private Mono<Boolean> hasRole(Role role, String userId, Object principal, JoinPoint joinPoint) {
-        if (!spelEvaluator.evaluateBoolean(role.condition(), joinPoint, principal)) {
+        if (!checkConditionsPass(role.condition(), role.conditions(), joinPoint, principal)) {
             return Mono.just(false);
         }
 
@@ -157,7 +212,7 @@ public class SecurityEvaluator {
     }
 
     private Mono<Boolean> hasPermission(Permission permission, String userId, Object principal, JoinPoint joinPoint) {
-        if (!spelEvaluator.evaluateBoolean(permission.condition(), joinPoint, principal)) {
+        if (!checkConditionsPass(permission.condition(), permission.conditions(), joinPoint, principal)) {
             return Mono.just(false);
         }
 

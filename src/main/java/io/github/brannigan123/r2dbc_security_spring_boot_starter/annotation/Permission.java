@@ -13,4 +13,6 @@ public @interface Permission {
     String tenantId() default "";
 
     String condition() default "";
+
+    String[] conditions() default {};
 }

@@ -13,4 +13,6 @@ public @interface Role {
     String tenantId() default "";
 
     String condition() default "";
+
+    String[] conditions() default {};
 }
